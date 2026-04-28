@@ -382,7 +382,24 @@ async function handleUpdate(update) {
     }
 }
 
+
+// ─── DEBUG LOGGING ───
+const ORIGINAL_HANDLER = module.exports;
 module.exports = async function handler(req, res) {
+    console.log('[WEBHOOK] Method:', req.method);
+    if (req.method === 'POST') {
+        console.log('[WEBHOOK] Body:', JSON.stringify(req.body).substring(0, 500));
+        console.log('[WEBHOOK] BOT_TOKEN set:', !!BOT_TOKEN, 'Length:', BOT_TOKEN.length);
+        console.log('[WEBHOOK] BASE_URL:', BASE_URL);
+    }
+    try {
+        return await ORIGINAL_HANDLER(req, res);
+    } catch (e) {
+        console.error('[WEBHOOK] FATAL:', e);
+        return res.status(500).send('Error: ' + e.message);
+    }
+};
+
     if (req.method === 'GET') return res.status(200).send('EURO54 Bot est en ligne !');
     if (req.method === 'POST') {
         try { await handleUpdate(req.body); return res.status(200).send('OK'); }
