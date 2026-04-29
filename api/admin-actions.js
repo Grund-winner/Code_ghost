@@ -7,10 +7,12 @@ const { query } = require('../lib/db');
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'euro54admin';
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const BOT_TOKEN_2 = process.env.BOT_TOKEN_2;
+const BOT_TOKEN_3 = process.env.BOT_TOKEN_3;
 
 const BOTS = {
     '1': { token: BOT_TOKEN, name: 'EURO54 Bot' },
-    '2': { token: BOT_TOKEN_2, name: 'EURO54 Bot 2' }
+    '2': { token: BOT_TOKEN_2, name: 'EURO54 Bot 2' },
+    '3': { token: BOT_TOKEN_3, name: 'JET HACK Bot' }
 };
 
 function getBotToken(botId) {
@@ -271,6 +273,64 @@ module.exports = async function handler(req, res) {
                 );
             }
             return res.status(200).json({ success: true, action: 'updated', telegram_id: tid });
+        }
+
+        // ─── CRÉDITER DES SIGNAUX (JET HACK) ───
+        if (action === 'add_signals') {
+            const tid = String(body.telegram_id || '').trim().replace(/[^0-9]/g, '');
+            const amount = parseInt(body.amount) || 0;
+            if (!tid) return res.status(400).json({ error: 'ID Telegram requis' });
+            if (amount <= 0) return res.status(400).json({ error: 'Montant invalide (minimum 1)' });
+
+            // Ensure user_signals table exists
+            await query(`CREATE TABLE IF NOT EXISTS user_signals (telegram_id BIGINT PRIMARY KEY, signals INTEGER DEFAULT 0, pref_range TEXT DEFAULT '10-20', last_signal_time TIMESTAMPTZ, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())`);
+            await query('INSERT INTO user_signals (telegram_id, signals, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (telegram_id) DO UPDATE SET signals = user_signals.signals + $2, updated_at = NOW()', [tid, amount]);
+
+            // Get new signal count
+            const result = await query('SELECT signals FROM user_signals WHERE telegram_id = $1', [tid]);
+            const newCount = result.length > 0 ? parseInt(result[0].signals) : 0;
+
+            // Notify user via JET HACK bot
+            if (BOT_TOKEN_3) {
+                try {
+                    await tgAPI('sendMessage', {
+                        chat_id: tid,
+                        text: '\ud83c\udf89 <b>Signaux crédités !</b>\n\nL\'admin vous a crédité <b>+' + amount + ' signaux</b>.\n\nTotal : <b>' + newCount + ' signaux</b>\n\nUtilisez /start pour les utiliser.',
+                        parse_mode: 'HTML'
+                    }, BOT_TOKEN_3);
+                } catch (e) {}
+            }
+
+            return res.status(200).json({ success: true, action: 'signals_added', telegram_id: tid, amount, new_total: newCount });
+        }
+
+        // ─── RETIRER DES SIGNAUX (JET HACK) ───
+        if (action === 'remove_signals') {
+            const tid = String(body.telegram_id || '').trim().replace(/[^0-9]/g, '');
+            const amount = parseInt(body.amount) || 0;
+            if (!tid) return res.status(400).json({ error: 'ID Telegram requis' });
+            if (amount <= 0) return res.status(400).json({ error: 'Montant invalide (minimum 1)' });
+
+            await query(`CREATE TABLE IF NOT EXISTS user_signals (telegram_id BIGINT PRIMARY KEY, signals INTEGER DEFAULT 0, pref_range TEXT DEFAULT '10-20', last_signal_time TIMESTAMPTZ, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())`);
+            await query('UPDATE user_signals SET signals = GREATEST(0, signals - $1), updated_at = NOW() WHERE telegram_id = $2', [amount, tid]);
+
+            const result = await query('SELECT signals FROM user_signals WHERE telegram_id = $1', [tid]);
+            const newCount = result.length > 0 ? parseInt(result[0].signals) : 0;
+
+            return res.status(200).json({ success: true, action: 'signals_removed', telegram_id: tid, amount, new_total: newCount });
+        }
+
+        // ─── VOIR LES SIGNAUX D'UN UTILISATEUR ───
+        if (action === 'get_signals') {
+            const tid = String(body.telegram_id || '').trim().replace(/[^0-9]/g, '');
+            if (!tid) return res.status(400).json({ error: 'ID Telegram requis' });
+
+            await query(`CREATE TABLE IF NOT EXISTS user_signals (telegram_id BIGINT PRIMARY KEY, signals INTEGER DEFAULT 0, pref_range TEXT DEFAULT '10-20', last_signal_time TIMESTAMPTZ, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())`);
+            const result = await query('SELECT signals, pref_range, last_signal_time FROM user_signals WHERE telegram_id = $1', [tid]);
+            if (result.length === 0) {
+                return res.status(200).json({ success: true, signals: 0, range: null, last_signal: null });
+            }
+            return res.status(200).json({ success: true, signals: parseInt(result[0].signals), range: result[0].pref_range, last_signal: result[0].last_signal_time });
         }
 
         // ─── SUPPRIMER UN ABONNÉ ───

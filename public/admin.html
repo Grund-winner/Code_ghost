@@ -794,6 +794,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
             Ajouter
         </button>
+        <button class="tab-btn" data-tab="signaux">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            Signaux
+        </button>
     </div>
 
     <!-- Content -->
@@ -859,7 +863,11 @@
                         </button>
                         <button class="select-btn" data-bot="2">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                            EURO54 Bot 2
+                            ALL GAMES
+                        </button>
+                        <button class="select-btn" data-bot="3">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            JET HACK
                         </button>
                     </div>
                 </div>
@@ -1056,6 +1064,40 @@
                     <button class="btn-secondary" id="addClearBtn">Effacer</button>
                 </div>
                 <div class="result-box" id="addResult"></div>
+            </div>
+        </div>
+
+        <!-- ═══ TAB: Signaux (JET HACK) ═══ -->
+        <div id="tab-signaux" class="tab-panel">
+            <div class="form-card">
+                <h3>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                    Gerer les signaux (JET HACK)
+                </h3>
+                <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;">Crediter ou retirer des signaux pour un utilisateur du bot JET HACK.</p>
+                <div class="form-group">
+                    <label>ID Telegram *</label>
+                    <input class="form-input" type="text" id="sigTgId" placeholder="Ex: 6806173609" inputmode="numeric">
+                </div>
+                <div style="display:flex;gap:10px;margin-bottom:16px;">
+                    <button class="btn-primary" id="sigLookupBtn" style="flex:1;justify-content:center;">Rechercher</button>
+                </div>
+                <div id="sigUserInfo" style="display:none;padding:12px;background:var(--bg);border-radius:10px;font-size:13px;margin-bottom:16px;line-height:1.6;"></div>
+                <div class="form-group">
+                    <label>Nombre de signaux</label>
+                    <input class="form-input" type="number" id="sigAmount" placeholder="Ex: 20" min="1" value="20">
+                </div>
+                <div class="btn-row">
+                    <button class="btn-primary" id="sigAddBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Crediter
+                    </button>
+                    <button class="btn-danger" id="sigRemoveBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Retirer
+                    </button>
+                </div>
+                <div class="result-box" id="sigResult"></div>
             </div>
         </div>
 
@@ -1772,7 +1814,8 @@
         }
 
         var targetLabel = bcTarget === 'all' ? 'TOUT LE MONDE' : bcTarget === 'registered' ? 'INSCRITS' : 'VIP';
-        var botLabel = bcBotId === '1' ? 'EURO54 Bot' : 'EURO54 Bot 2';
+        var botLabels = { '1': 'CODE GHOST', '2': 'ALL GAMES', '3': 'JET HACK' };
+        var botLabel = botLabels[bcBotId] || ('Bot ' + bcBotId);
         showConfirm(
             'Confirmer la diffusion',
             'Envoyer via <b>' + botLabel + '</b> a ' + targetLabel + ' ?',
@@ -1915,6 +1958,87 @@
         $('#addResult').style.display = 'none';
     }
     $('#addClearBtn').addEventListener('click', clearAddForm);
+
+    /* ═══════════════════════════════════════
+       SIGNAUX (JET HACK)
+       ═══════════════════════════════════════ */
+    function showSigResult(msg, isError) {
+        var rb = $('#sigResult');
+        rb.className = 'result-box ' + (isError ? 'error' : 'success') + ' show';
+        rb.innerHTML = msg;
+    }
+
+    function hideSigResult() {
+        var rb = $('#sigResult');
+        rb.className = 'result-box';
+    }
+
+    $('#sigLookupBtn').addEventListener('click', async function() {
+        var tid = $('#sigTgId').value.trim().replace(/[^0-9]/g, '');
+        if (!tid) { showToast('Entrez un ID Telegram', 'error'); return; }
+        var btn = this;
+        btn.disabled = true;
+        btn.textContent = 'Recherche...';
+        try {
+            var r = await apiAction({ action: 'get_signals', telegram_id: tid });
+            var info = $('#sigUserInfo');
+            if (r.success) {
+                info.style.display = 'block';
+                info.innerHTML = '<b>Utilisateur :</b> ' + tid + '<br><b>Signaux actuels :</b> ' + r.signals + '<br><b>Tranche :</b> ' + (r.range || 'Non definie') + '<br><b>Dernier signal :</b> ' + (r.last_signal ? new Date(r.last_signal).toLocaleString('fr-FR') : 'Jamais');
+            } else {
+                info.style.display = 'block';
+                info.innerHTML = '<span style="color:var(--danger)">Erreur : ' + (r.error || 'Utilisateur non trouve') + '</span>';
+            }
+        } catch (e) {
+            showToast('Erreur de connexion', 'error');
+        }
+        btn.disabled = false;
+        btn.textContent = 'Rechercher';
+    });
+
+    $('#sigAddBtn').addEventListener('click', async function() {
+        var tid = $('#sigTgId').value.trim().replace(/[^0-9]/g, '');
+        var amount = parseInt($('#sigAmount').value) || 0;
+        if (!tid) { showToast('Entrez un ID Telegram', 'error'); return; }
+        if (amount <= 0) { showToast('Montant invalide', 'error'); return; }
+        var btn = this;
+        btn.disabled = true;
+        hideSigResult();
+        try {
+            var r = await apiAction({ action: 'add_signals', telegram_id: tid, amount: amount });
+            if (r.success) {
+                showSigResult('<b>+' + amount + ' signaux</b> credites ! Total : <b>' + r.new_total + ' signaux</b>');
+                $('#sigLookupBtn').click(); // Refresh info
+            } else {
+                showSigResult('<b>Erreur</b> : ' + (r.error || 'Impossible de crediter'), true);
+            }
+        } catch (e) {
+            showSigResult('Erreur de connexion', true);
+        }
+        btn.disabled = false;
+    });
+
+    $('#sigRemoveBtn').addEventListener('click', async function() {
+        var tid = $('#sigTgId').value.trim().replace(/[^0-9]/g, '');
+        var amount = parseInt($('#sigAmount').value) || 0;
+        if (!tid) { showToast('Entrez un ID Telegram', 'error'); return; }
+        if (amount <= 0) { showToast('Montant invalide', 'error'); return; }
+        var btn = this;
+        btn.disabled = true;
+        hideSigResult();
+        try {
+            var r = await apiAction({ action: 'remove_signals', telegram_id: tid, amount: amount });
+            if (r.success) {
+                showSigResult('<b>-' + amount + ' signaux</b> retires. Total : <b>' + r.new_total + ' signaux</b>');
+                $('#sigLookupBtn').click(); // Refresh info
+            } else {
+                showSigResult('<b>Erreur</b> : ' + (r.error || 'Impossible de retirer'), true);
+            }
+        } catch (e) {
+            showSigResult('Erreur de connexion', true);
+        }
+        btn.disabled = false;
+    });
 
     /* ═══════════════════════════════════════
        INIT
