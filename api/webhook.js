@@ -121,8 +121,18 @@ async function sendPhoto(chatId, userId, img, text, btns, prevMsgId) {
     });
     if (res.ok) {
         try { await query('UPDATE users SET last_message_id = $1, updated_at = NOW() WHERE telegram_id = $2', [res.result.message_id, userId]); } catch (e) {}
+        return res;
     }
-    return res;
+    // Fallback : si sendPhoto échoue (image introuvable, etc.), envoyer en texte
+    console.error('[sendPhoto] échec, fallback sendMessage:', JSON.stringify(res).substring(0, 200));
+    const fb = await tgAPI('sendMessage', {
+        chat_id: chatId, text: text,
+        parse_mode: 'HTML', reply_markup: { inline_keyboard: btns }
+    });
+    if (fb.ok) {
+        try { await query('UPDATE users SET last_message_id = $1, updated_at = NOW() WHERE telegram_id = $2', [fb.result.message_id, userId]); } catch (e) {}
+    }
+    return fb;
 }
 
 async function getUser(tid) {
@@ -230,27 +240,54 @@ async function handleText(chatId, from, text) {
     if (session && session.action === 'already_registered') {
         const winId = text.trim();
         await clearTempState(from.id);
+
+        // 1. Chercher un utilisateur existant avec cet ID 1Win
         const found = await query('SELECT * FROM users WHERE one_win_user_id = $1', [winId]);
         if (found.length === 0) {
             const user = await getUser(from.id);
-            await sendPhoto(chatId, from.id, IMG.default, M.already_registered_notfound, [[{ text: "S'inscrire", url: regLink(from.id) }], BTN_BACK[0]], user.last_message_id);
+            await sendPhoto(chatId, from.id, IMG.default, M.already_registered_notfound, [[{ text: "S'inscrire", url: regLink(from.id) }], BTN_BACK[0]], user?.last_message_id);
             return;
         }
-        const u = found[0];
-        if (u.telegram_id && String(u.telegram_id) !== String(from.id)) {
+
+        const targetUser = found[0]; // Ligne qui a l'ID 1Win
+
+        // 2. Si cet ID 1Win est déjà lié à un AUTRE compte Telegram
+        if (targetUser.telegram_id && String(targetUser.telegram_id) !== String(from.id)) {
             const user = await getUser(from.id);
-            await sendPhoto(chatId, from.id, IMG.default, M.already_registered_already, BTN_BACK, user.last_message_id);
+            await sendPhoto(chatId, from.id, IMG.default, M.already_registered_already, BTN_BACK, user?.last_message_id);
             return;
         }
-        await query(`UPDATE users SET one_win_user_id = $1, is_registered = TRUE, is_deposited = $2, deposit_amount = $3,
-            registered_at = CASE WHEN registered_at IS NULL THEN $4 ELSE registered_at END,
-            deposited_at = CASE WHEN $2 AND deposited_at IS NULL THEN $5 ELSE deposited_at END,
-            updated_at = NOW() WHERE telegram_id = $6`,
-            [winId, !!u.is_deposited, u.deposit_amount || 0, u.registered_at, u.deposited_at, from.id]);
-        if (!u.telegram_id) {
-            await query('UPDATE users SET telegram_id = $1 WHERE one_win_user_id = $2 AND telegram_id IS NULL', [from.id, winId]);
+
+        // 3. Fusionner : associer le compte Telegram à la ligne 1Win existante
+        const telegramUser = await getUser(from.id);
+
+        if (telegramUser && String(telegramUser.id) !== String(targetUser.id)) {
+            // Il existe une ligne Telegram séparée → fusionner
+            // Copier les infos Telegram sur la ligne 1Win
+            await query(
+                `UPDATE users SET telegram_id = $1, username = COALESCE($2, username), first_name = COALESCE($3, first_name), last_name = COALESCE($4, last_name),
+                 is_registered = TRUE, updated_at = NOW() WHERE id = $5`,
+                [from.id, from.username, from.first_name, from.last_name, targetUser.id]
+            );
+            // Supprimer l'ancienne ligne Telegram-only
+            await query('DELETE FROM users WHERE id = $1', [telegramUser.id]);
+        } else if (!telegramUser || String(telegramUser.id) === String(targetUser.id)) {
+            // Pas de ligne Telegram, ou c'est déjà la même ligne → juste mettre à jour
+            await query(
+                `UPDATE users SET telegram_id = $1, username = COALESCE($2, username), first_name = COALESCE($3, first_name), last_name = COALESCE($4, last_name),
+                 is_registered = TRUE, updated_at = NOW() WHERE id = $5`,
+                [from.id, from.username, from.first_name, from.last_name, targetUser.id]
+            );
         }
+
+        // 4. Récupérer l'utilisateur fusionné
         const user = await getUser(from.id);
+        if (!user) {
+            await tgAPI('sendMessage', { chat_id: chatId, text: 'Erreur interne. Réessayez.', parse_mode: 'HTML' });
+            return;
+        }
+
+        // 5. Répondre selon le statut
         if (user.is_registered && hasValidDeposit(user)) {
             await tgAPI('sendMessage', { chat_id: chatId, text: M.already_registered_success, parse_mode: 'HTML' });
             await sendVIPMessage(chatId, from.id, user.last_message_id);
@@ -266,7 +303,7 @@ async function handleText(chatId, from, text) {
             }
             await tgAPI('sendMessage', { chat_id: chatId, text: extraMsg, parse_mode: 'HTML' });
         } else {
-            await sendPhoto(chatId, from.id, IMG.register, M.register, [[{ text: "S'inscrire maintenant", url: regLink(from.id) }], BTN_BACK[0]], user.last_message_id);
+            await tgAPI('sendMessage', { chat_id: chatId, text: M.already_registered_success + '\n\n' + M.register, parse_mode: 'HTML' });
         }
     }
 }
