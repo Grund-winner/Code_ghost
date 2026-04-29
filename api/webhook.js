@@ -303,9 +303,29 @@ async function handleText(chatId, from, text) {
             } else {
                 extraMsg = M.already_registered_success + '\n\n' + M.deposit;
             }
-            await tgAPI('sendMessage', { chat_id: chatId, text: extraMsg, parse_mode: 'HTML' });
+            await tgAPI('sendMessage', {
+                chat_id: chatId,
+                text: extraMsg,
+                parse_mode: 'HTML',
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: "Effectuer un depot", url: depLink(from.id) }],
+                        BTN_BACK[0]
+                    ]
+                }
+            });
         } else {
-            await tgAPI('sendMessage', { chat_id: chatId, text: M.already_registered_success + '\n\n' + M.register, parse_mode: 'HTML' });
+            await tgAPI('sendMessage', {
+                chat_id: chatId,
+                text: M.already_registered_success + '\n\n' + M.register,
+                parse_mode: 'HTML',
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: "S'inscrire maintenant", url: regLink(from.id) }],
+                        BTN_BACK[0]
+                    ]
+                }
+            });
         }
     }
     } catch(err) {
