@@ -292,6 +292,13 @@
         .toggle-item input:checked ~ .toggle-label { color: var(--success); }
         .toggle-item input:not(:checked) ~ .toggle-label { color: var(--danger); }
 
+        /* Status toggle: OFF = red, ON = green */
+        .toggle-track { width: 44px; height: 26px; border-radius: 13px; position: relative; transition: background 0.25s ease; flex-shrink: 0; }
+        .toggle-item input:not(:checked) + .toggle-track { background: #FF3B30; }
+        .toggle-item input:checked + .toggle-track { background: #34C759; }
+        .toggle-item input:not(:checked) ~ .toggle-label { color: #FF3B30; font-weight: 700; }
+        .toggle-item input:checked ~ .toggle-label { color: #34C759; font-weight: 700; }
+
         /* ─── Selector Buttons ─── */
         .select-group { display: flex; gap: 8px; flex-wrap: wrap; }
         .select-btn {
@@ -1001,12 +1008,13 @@
                     Ajouter un abonne
                 </h3>
                 <div class="form-group">
-                    <label>ID Telegram</label>
-                    <input class="form-input" type="text" id="addTgId" placeholder="Ex: 6806173609" inputmode="numeric">
+                    <label>ID 1Win *</label>
+                    <input class="form-input" type="text" id="addWinId" placeholder="Ex: 123456789 (obligatoire)" inputmode="numeric">
                 </div>
                 <div class="form-group">
-                    <label>ID 1Win (optionnel)</label>
-                    <input class="form-input" type="text" id="addWinId" placeholder="Ex: 123456789" inputmode="numeric">
+                    <label>ID Telegram (optionnel)</label>
+                    <input class="form-input" type="text" id="addTgId" placeholder="Ex: 6806173609" inputmode="numeric">
+                    <p style="font-size:11px;color:var(--text-tertiary);margin-top:4px;">Laissez vide si l'utilisateur n'a pas encore clique "Deja inscrit(e)" sur le bot</p>
                 </div>
                 <div class="form-group">
                     <label>Statut</label>
@@ -1798,13 +1806,13 @@
        ═══════════════════════════════════════ */
     $('#addUserBtn').addEventListener('click', async function() {
         var tid = $('#addTgId').value.trim().replace(/[^0-9]/g, '');
-        var winId = $('#addWinId').value.trim();
+        var winId = $('#addWinId').value.trim().replace(/[^0-9]/g, '');
         var isReg = $('#addReg').checked;
         var isDep = $('#addDep').checked;
         var resultBox = $('#addResult');
 
-        if (!tid || tid.length < 5) {
-            showToast('ID Telegram invalide (min 5 chiffres)', 'error');
+        if (!winId || winId.length < 3) {
+            showToast('ID 1Win est obligatoire', 'error');
             return;
         }
 
@@ -1814,8 +1822,8 @@
 
         var r = await apiAction({
             action: 'add_user',
-            telegram_id: tid,
-            one_win_id: winId || null,
+            telegram_id: tid || null,
+            one_win_id: winId,
             is_registered: isReg,
             is_deposited: isDep
         });
@@ -1826,7 +1834,7 @@
         if (r && r.success) {
             var actLabel = r.action === 'created' ? ' cree avec succes' : ' mis a jour avec succes';
             resultBox.className = 'result-box success show';
-            resultBox.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><b>Abonne' + actLabel + '</b><br>ID: <span class="id-cell">' + r.telegram_id + '</span>' + (r.name ? ' | ' + r.name : '');
+            resultBox.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><b>Abonne' + actLabel + '</b><br>ID 1Win: <span class="id-cell">' + (r.one_win_id || winId) + '</span>' + (r.telegram_id ? ' | Telegram: <span class="id-cell">' + r.telegram_id + '</span>' : '') + (r.name ? ' | ' + r.name : '');
             clearAddForm();
             loadAll();
         } else {

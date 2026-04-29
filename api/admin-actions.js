@@ -187,39 +187,65 @@ module.exports = async function handler(req, res) {
         }
 
         // ─── AJOUTER UN ABONNÉ ───
+        // ID 1Win est obligatoire, ID Telegram est optionnel
         if (action === 'add_user') {
             const tid = String(body.telegram_id || '').trim().replace(/[^0-9]/g, '');
             const winId = String(body.one_win_id || '').trim().replace(/[^0-9]/g, '');
             const isRegistered = body.is_registered === true || body.is_registered === 'true';
             const isDeposited = body.is_deposited === true || body.is_deposited === 'true';
 
-            if (!tid || tid.length < 5) return res.status(400).json({ error: 'ID Telegram invalide' });
+            // ID 1Win est obligatoire
+            if (!winId || winId.length < 3) return res.status(400).json({ error: 'ID 1Win est obligatoire' });
 
-            const existing = await query('SELECT * FROM users WHERE telegram_id = $1', [tid]);
-            if (existing.length > 0) {
+            // Vérifier si un utilisateur avec ce 1Win ID existe déjà
+            const existingByWin = await query('SELECT * FROM users WHERE one_win_user_id = $1', [winId]);
+            if (existingByWin.length > 0) {
+                const u = existingByWin[0];
                 const updates = ['is_registered = $2', 'is_deposited = $3', 'updated_at = NOW()'];
-                const params = [isRegistered, isDeposited, tid];
-                if (winId) {
-                    updates.push('one_win_user_id = $4');
-                    params.splice(2, 0, winId);
+                const params = [isRegistered, isDeposited, winId];
+                // Si un telegram_id est fourni, le lier
+                if (tid && tid.length >= 5) {
+                    updates.push('telegram_id = $4');
+                    params.splice(2, 0, tid);
+                    // Also try to get name from Telegram
+                    const ci = await getChatInfo(tid);
+                    if (ci) {
+                        updates.push("first_name = $5");
+                        params.splice(3, 0, [ci.first_name, ci.last_name].filter(Boolean).join(' ') || 'Inconnu');
+                    }
                 }
                 await query(
-                    'UPDATE users SET ' + updates.join(', ') + ' WHERE telegram_id = $' + (params.length),
+                    'UPDATE users SET ' + updates.join(', ') + ' WHERE one_win_user_id = $' + (params.length),
                     params
                 );
-                return res.status(200).json({ success: true, action: 'updated', telegram_id: tid });
+                return res.status(200).json({ success: true, action: 'updated', one_win_id: winId, telegram_id: tid || u.telegram_id });
             }
 
-            // Auto-detect name from Telegram
+            // Si un telegram_id est fourni, vérifier s'il existe déjà
+            if (tid && tid.length >= 5) {
+                const existingByTg = await query('SELECT * FROM users WHERE telegram_id = $1', [tid]);
+                if (existingByTg.length > 0) {
+                    // Mettre à jour l'utilisateur existant avec le 1Win ID
+                    await query(
+                        'UPDATE users SET one_win_user_id = $1, is_registered = $2, is_deposited = $3, updated_at = NOW() WHERE telegram_id = $4',
+                        [winId, isRegistered, isDeposited, tid]
+                    );
+                    return res.status(200).json({ success: true, action: 'updated', telegram_id: tid, one_win_id: winId });
+                }
+            }
+
+            // Créer un nouvel utilisateur
             let name = 'Inconnu';
-            const ci = await getChatInfo(tid);
-            if (ci) name = [ci.first_name, ci.last_name].filter(Boolean).join(' ') || 'Inconnu';
+            if (tid && tid.length >= 5) {
+                const ci = await getChatInfo(tid);
+                if (ci) name = [ci.first_name, ci.last_name].filter(Boolean).join(' ') || 'Inconnu';
+            }
 
             await query(
                 'INSERT INTO users (telegram_id, first_name, one_win_user_id, is_registered, is_deposited, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())',
-                [tid, name, winId || null, isRegistered, isDeposited]
+                [tid && tid.length >= 5 ? tid : null, name, winId, isRegistered, isDeposited]
             );
-            return res.status(200).json({ success: true, action: 'created', telegram_id: tid, name });
+            return res.status(200).json({ success: true, action: 'created', one_win_id: winId, telegram_id: tid || null, name });
         }
 
         // ─── MODIFIER UN ABONNÉ ───
