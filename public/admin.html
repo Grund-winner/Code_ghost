@@ -1124,6 +1124,7 @@
     let bcMediaType = 'text';
     let bcBotId = '1';
     let editingTgId = null;
+    let editingDbId = null;
     let selectedFile = null;
     let selectedFileBase64 = null;
     let confirmCallback = null;
@@ -1319,14 +1320,14 @@
                 '<td>' + depBadge + '</td>' +
                 '<td>' + amount + '</td>' +
                 '<td>' + date + '</td>' +
-                '<td><button class="btn-action" data-edit-id="' + tgId + '">' + editSvg + ' Modifier</button></td>' +
+                '<td><button class="btn-action" data-edit-id="' + (u.id || tgId) + '" data-edit-tg="' + tgId + '">' + editSvg + ' Modifier</button></td>' +
                 '</tr>';
         }).join('');
 
         /* Bind edit buttons */
         body.querySelectorAll('[data-edit-id]').forEach(function(btn) {
             btn.addEventListener('click', function() {
-                openEdit(this.getAttribute('data-edit-id'));
+                openEdit(this.getAttribute('data-edit-id'), this.getAttribute('data-edit-tg'));
             });
         });
     }
@@ -1366,11 +1367,12 @@
     /* ═══════════════════════════════════════
        EDIT MODAL
        ═══════════════════════════════════════ */
-    function openEdit(tid) {
-        if (!tid) return;
-        var user = allUsers.find(function(u) { return String(u.telegram_id) === String(tid); });
+    function openEdit(uid, tid) {
+        if (!uid) return;
+        var user = allUsers.find(function(u) { return String(u.id) === String(uid) || (tid && String(u.telegram_id) === String(tid)); });
         if (!user) return;
-        editingTgId = tid;
+        editingTgId = user.telegram_id || null;
+        editingDbId = user.id;
         // Set edit status buttons
         var editRegBtn = document.getElementById('editRegBtn');
         var editDepBtn = document.getElementById('editDepBtn');
@@ -1403,6 +1405,7 @@
     function closeModal() {
         $('#editModal').classList.remove('show');
         editingTgId = null;
+        editingDbId = null;
     }
     $('#modalCloseBtn').addEventListener('click', closeModal);
     $('#editCancelBtn').addEventListener('click', closeModal);
@@ -1429,12 +1432,14 @@
     });
 
     $('#deleteUserBtn').addEventListener('click', function() {
-        if (!editingTgId) return;
+        if (!editingDbId) return;
         showConfirm(
             'Supprimer cet abonne ?',
             'Cette action est irreversible.',
             async function() {
-                var r = await apiAction({ action: 'delete_user', telegram_id: editingTgId });
+                var payload = { action: 'delete_user', id: editingDbId };
+                if (editingTgId) payload.telegram_id = editingTgId;
+                var r = await apiAction(payload);
                 if (r && r.success) { closeModal(); loadAll(); showToast('Abonne supprime', 'success'); }
                 else showToast(r && r.error ? r.error : 'Erreur lors de la suppression', 'error');
             }

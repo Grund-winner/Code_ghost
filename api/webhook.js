@@ -236,7 +236,9 @@ async function sendVIPMessage(chatId, userId, currentMsgId) {
 }
 
 async function handleText(chatId, from, text) {
+    try {
     const session = await getTempState(from.id);
+    console.log('[handleText] user=' + from.id + ' session=' + JSON.stringify(session) + ' text=' + text);
     if (session && session.action === 'already_registered') {
         const winId = text.trim();
         await clearTempState(from.id);
@@ -305,6 +307,10 @@ async function handleText(chatId, from, text) {
         } else {
             await tgAPI('sendMessage', { chat_id: chatId, text: M.already_registered_success + '\n\n' + M.register, parse_mode: 'HTML' });
         }
+    }
+    } catch(err) {
+        console.error('[handleText ERROR]', err);
+        await tgAPI('sendMessage', { chat_id: chatId, text: 'Erreur, veuillez reessayer.', parse_mode: 'HTML' }).catch(function(){});
     }
 }
 
