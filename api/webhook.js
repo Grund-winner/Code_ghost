@@ -291,8 +291,7 @@ async function handleText(chatId, from, text) {
 
         // 5. Répondre selon le statut
         if (user.is_registered && hasValidDeposit(user)) {
-            await tgAPI('sendMessage', { chat_id: chatId, text: M.already_registered_success, parse_mode: 'HTML' });
-            await sendVIPMessage(chatId, from.id, user.last_message_id);
+            await sendPhoto(chatId, from.id, IMG.default, M.already_registered_success, vipButtons(from.id), user.last_message_id);
         } else if (user.is_registered) {
             const dep = parseFloat(user.deposit_amount) || 0;
             let extraMsg;
@@ -303,29 +302,9 @@ async function handleText(chatId, from, text) {
             } else {
                 extraMsg = M.already_registered_success + '\n\n' + M.deposit;
             }
-            await tgAPI('sendMessage', {
-                chat_id: chatId,
-                text: extraMsg,
-                parse_mode: 'HTML',
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: "Effectuer un depot", url: depLink(from.id) }],
-                        BTN_BACK[0]
-                    ]
-                }
-            });
+            await sendPhoto(chatId, from.id, IMG.deposit, extraMsg, [[{ text: "Effectuer un depot", url: depLink(from.id) }], BTN_BACK[0]], user.last_message_id);
         } else {
-            await tgAPI('sendMessage', {
-                chat_id: chatId,
-                text: M.already_registered_success + '\n\n' + M.register,
-                parse_mode: 'HTML',
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: "S'inscrire maintenant", url: regLink(from.id) }],
-                        BTN_BACK[0]
-                    ]
-                }
-            });
+            await sendPhoto(chatId, from.id, IMG.register, M.already_registered_success + '\n\n' + M.register, [[{ text: "S'inscrire maintenant", url: regLink(from.id) }], BTN_BACK[0]], user.last_message_id);
         }
     }
     } catch(err) {
