@@ -66,6 +66,30 @@ module.exports = async function handler(req, res) {
             return res.status(200).json({ codes });
         }
 
+        // ─── Nettoyer les doublons Inconnu ───
+        if (action === 'cleanup') {
+            // Supprimer les lignes "Inconnu" sans telegram_id
+            const r1 = await query(
+                `DELETE FROM users WHERE first_name = 'Inconnu' AND telegram_id IS NULL RETURNING id, one_win_user_id`
+            );
+            // Supprimer les doublons 1Win (garder la ligne avec telegram_id)
+            const dupes = await query(
+                `SELECT one_win_user_id FROM users WHERE one_win_user_id IS NOT NULL GROUP BY one_win_user_id HAVING COUNT(*) > 1`
+            );
+            let dupesDeleted = 0;
+            for (const d of dupes) {
+                const rows = await query(
+                    `SELECT * FROM users WHERE one_win_user_id = $1 ORDER BY telegram_id NULLS LAST, id DESC`, [d.one_win_user_id]
+                );
+                for (let i = 1; i < rows.length; i++) {
+                    await query('DELETE FROM users WHERE id = $1', [rows[i].id]);
+                    dupesDeleted++;
+                }
+            }
+            const remaining = await query('SELECT id, first_name, telegram_id, one_win_user_id FROM users ORDER BY id');
+            return res.status(200).json({ inconnu_deleted: r1.length, dupes_deleted: dupesDeleted, remaining });
+        }
+
         // ─── Générer un code ───
         if (action === 'generate') {
             const tid = req.query.telegram_id;
