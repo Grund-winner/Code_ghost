@@ -14,10 +14,10 @@ const LINK_SECRET = process.env.ADMIN_PASSWORD || 'euro54secret';
 
 const V = Date.now();
 const IMG = {
-    default: `${BASE_URL}/images/default.png?v=${V}`,
-    register: `${BASE_URL}/images/register.png?v=${V}`,
-    deposit: `${BASE_URL}/images/deposit.png?v=${V}`,
-    instructions: `${BASE_URL}/images/instructions.png?v=${V}`
+    default: `${BASE_URL}/images/default.jpg?v=${V}`,
+    register: `${BASE_URL}/images/register.jpg?v=${V}`,
+    deposit: `${BASE_URL}/images/deposit.jpg?v=${V}`,
+    instructions: `${BASE_URL}/images/instructions.jpg?v=${V}`
 };
 
 const M = {
