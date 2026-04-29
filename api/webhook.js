@@ -265,14 +265,14 @@ async function handleText(chatId, from, text) {
 
         if (telegramUser && String(telegramUser.id) !== String(targetUser.id)) {
             // Il existe une ligne Telegram séparée → fusionner
-            // Copier les infos Telegram sur la ligne 1Win
+            // D'ABORD supprimer l'ancienne ligne Telegram (sinon contrainte UNIQUE telegram_id)
+            await query('DELETE FROM users WHERE id = $1', [telegramUser.id]);
+            // PUIS copier les infos Telegram sur la ligne 1Win
             await query(
                 `UPDATE users SET telegram_id = $1, username = COALESCE($2, username), first_name = COALESCE($3, first_name), last_name = COALESCE($4, last_name),
                  is_registered = TRUE, updated_at = NOW() WHERE id = $5`,
                 [from.id, from.username, from.first_name, from.last_name, targetUser.id]
             );
-            // Supprimer l'ancienne ligne Telegram-only
-            await query('DELETE FROM users WHERE id = $1', [telegramUser.id]);
         } else if (!telegramUser || String(telegramUser.id) === String(targetUser.id)) {
             // Pas de ligne Telegram, ou c'est déjà la même ligne → juste mettre à jour
             await query(
