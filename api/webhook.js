@@ -386,12 +386,8 @@ module.exports = async function handler(req, res) {
     if (req.method === 'GET') return res.status(200).send('EURO54 Bot est en ligne !');
     if (req.method === 'POST') {
         try {
-            console.log('[WEBHOOK] BOT_TOKEN:', BOT_TOKEN ? BOT_TOKEN.substring(0,10) + '...' : 'EMPTY');
-            console.log('[WEBHOOK] BASE_URL:', BASE_URL || 'EMPTY');
-            console.log('[WEBHOOK] Body keys:', Object.keys(req.body));
             const text = req.body?.message?.text || 'no text';
             const chatId = req.body?.message?.chat?.id || 'no chat';
-            console.log('[WEBHOOK] text:', text, 'chatId:', chatId);
             await handleUpdate(req.body);
             return res.status(200).send('OK');
         }
