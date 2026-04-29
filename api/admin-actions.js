@@ -276,9 +276,15 @@ module.exports = async function handler(req, res) {
         // ─── SUPPRIMER UN ABONNÉ ───
         if (action === 'delete_user') {
             const tid = String(body.telegram_id || '').trim();
-            if (!tid) return res.status(400).json({ error: 'ID manquant' });
-            await query('DELETE FROM users WHERE telegram_id = $1', [tid]);
-            return res.status(200).json({ success: true, action: 'deleted', telegram_id: tid });
+            const uid = body.id ? parseInt(body.id) : null;
+            if (!tid && !uid) return res.status(400).json({ error: 'ID manquant' });
+            if (uid) {
+                await query('DELETE FROM users WHERE id = $1', [uid]);
+                return res.status(200).json({ success: true, action: 'deleted', id: uid });
+            } else {
+                await query('DELETE FROM users WHERE telegram_id = $1', [tid]);
+                return res.status(200).json({ success: true, action: 'deleted', telegram_id: tid });
+            }
         }
 
         return res.status(400).json({ error: 'Action inconnue' });
