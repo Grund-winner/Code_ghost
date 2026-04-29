@@ -292,12 +292,29 @@
         .toggle-item input:checked ~ .toggle-label { color: var(--success); }
         .toggle-item input:not(:checked) ~ .toggle-label { color: var(--danger); }
 
-        /* Status toggle: OFF = red, ON = green */
-        .toggle-track { width: 44px; height: 26px; border-radius: 13px; position: relative; transition: background 0.25s ease; flex-shrink: 0; }
-        .toggle-item input:not(:checked) + .toggle-track { background: #FF3B30; }
-        .toggle-item input:checked + .toggle-track { background: #34C759; }
-        .toggle-item input:not(:checked) ~ .toggle-label { color: #FF3B30; font-weight: 700; }
-        .toggle-item input:checked ~ .toggle-label { color: #34C759; font-weight: 700; }
+        /* Status buttons: OFF = red, ON = green */
+        .status-row { display: flex; gap: 12px; flex-wrap: wrap; padding: 4px 0; }
+        .status-btn {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 16px; border-radius: var(--radius-xs);
+            border: 2px solid; cursor: pointer;
+            font-family: var(--font); font-size: 14px; font-weight: 700;
+            transition: all 0.2s ease; user-select: none;
+            text-transform: uppercase; letter-spacing: 0.3px;
+        }
+        .status-btn:active { transform: scale(0.96); }
+        .status-btn .status-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            transition: background 0.2s ease; flex-shrink: 0;
+        }
+        /* OFF state = red */
+        .status-btn.off { background: #FEE2E2; border-color: #FECACA; color: #991B1B; }
+        .status-btn.off .status-dot { background: #EF4444; }
+        .status-btn.off:hover { background: #FED7D7; border-color: #FCA5A5; }
+        /* ON state = green */
+        .status-btn.on { background: #D1FAE5; border-color: #A7F3D0; color: #065F46; }
+        .status-btn.on .status-dot { background: #10B981; }
+        .status-btn.on:hover { background: #C6F6D5; border-color: #6EE7B7; }
 
         /* ─── Selector Buttons ─── */
         .select-group { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -1018,18 +1035,18 @@
                 </div>
                 <div class="form-group">
                     <label>Statut</label>
-                    <div class="toggle-row">
-                        <label class="toggle-item">
-                            <span class="toggle-label">Inscrit</span>
-                            <input type="checkbox" id="addReg" checked>
-                            <span class="toggle-track"></span>
-                        </label>
-                        <label class="toggle-item">
-                            <span class="toggle-label">Depose</span>
-                            <input type="checkbox" id="addDep">
-                            <span class="toggle-track"></span>
-                        </label>
+                    <div class="status-row">
+                        <div class="status-btn on" id="addRegBtn" data-field="addReg" data-state="on" onclick="toggleStatusBtn(this,'addReg')">
+                            <span class="status-dot"></span>
+                            Inscrit : OUI
+                        </div>
+                        <div class="status-btn off" id="addDepBtn" data-field="addDep" data-state="off" onclick="toggleStatusBtn(this,'addDep')">
+                            <span class="status-dot"></span>
+                            Depose : NON
+                        </div>
                     </div>
+                    <input type="hidden" id="addReg" value="true">
+                    <input type="hidden" id="addDep" value="false">
                 </div>
                 <div class="btn-row">
                     <button class="btn-primary" id="addUserBtn">
@@ -1062,17 +1079,15 @@
             <div class="user-info-box" id="editInfo"></div>
             <div class="form-group">
                 <label>Statut</label>
-                <div class="toggle-row">
-                    <label class="toggle-item">
-                        <span class="toggle-label">Inscrit</span>
-                        <input type="checkbox" id="editReg">
-                        <span class="toggle-track"></span>
-                    </label>
-                    <label class="toggle-item">
-                        <span class="toggle-label">Depose</span>
-                        <input type="checkbox" id="editDep">
-                        <span class="toggle-track"></span>
-                    </label>
+                <div class="status-row">
+                    <div class="status-btn off" id="editRegBtn" data-field="editReg" data-state="off" onclick="toggleStatusBtn(this,'editReg')">
+                        <span class="status-dot"></span>
+                        Inscrit : NON
+                    </div>
+                    <div class="status-btn off" id="editDepBtn" data-field="editDep" data-state="off" onclick="toggleStatusBtn(this,'editDep')">
+                        <span class="status-dot"></span>
+                        Depose : NON
+                    </div>
                 </div>
             </div>
             <div class="form-group">
@@ -1356,8 +1371,27 @@
         var user = allUsers.find(function(u) { return String(u.telegram_id) === String(tid); });
         if (!user) return;
         editingTgId = tid;
-        $('#editReg').checked = !!user.is_registered;
-        $('#editDep').checked = !!user.is_deposited;
+        // Set edit status buttons
+        var editRegBtn = document.getElementById('editRegBtn');
+        var editDepBtn = document.getElementById('editDepBtn');
+        if (!!user.is_registered) {
+            editRegBtn.dataset.state = 'on';
+            editRegBtn.className = 'status-btn on';
+            editRegBtn.innerHTML = '<span class="status-dot"></span> INSCRIT : OUI';
+        } else {
+            editRegBtn.dataset.state = 'off';
+            editRegBtn.className = 'status-btn off';
+            editRegBtn.innerHTML = '<span class="status-dot"></span> INSCRIT : NON';
+        }
+        if (!!user.is_deposited) {
+            editDepBtn.dataset.state = 'on';
+            editDepBtn.className = 'status-btn on';
+            editDepBtn.innerHTML = '<span class="status-dot"></span> DEPOSE : OUI';
+        } else {
+            editDepBtn.dataset.state = 'off';
+            editDepBtn.className = 'status-btn off';
+            editDepBtn.innerHTML = '<span class="status-dot"></span> DEPOSE : NON';
+        }
         $('#editAmount').value = user.deposit_amount || '';
         $('#editInfo').innerHTML =
             '<b>ID:</b> <span class="id-cell">' + (user.telegram_id || '-') + '</span>' +
@@ -1382,8 +1416,8 @@
         var body = {
             action: 'edit_user',
             telegram_id: editingTgId,
-            is_registered: $('#editReg').checked,
-            is_deposited: $('#editDep').checked
+            is_registered: document.getElementById('editRegBtn').dataset.state === 'on',
+            is_deposited: document.getElementById('editDepBtn').dataset.state === 'on'
         };
         var amt = $('#editAmount').value;
         if (amt) body.deposit_amount = parseFloat(amt);
@@ -1802,13 +1836,31 @@
     });
 
     /* ═══════════════════════════════════════
+       STATUS BUTTON TOGGLE
+       ═══════════════════════════════════════ */
+    window.toggleStatusBtn = function(btn, fieldId) {
+        var isOn = btn.dataset.state === 'on';
+        if (isOn) {
+            btn.dataset.state = 'off';
+            btn.className = 'status-btn off';
+            var label = fieldId.includes('Reg') ? 'INSCRIT' : 'DEPOSE';
+            btn.innerHTML = '<span class="status-dot"></span> ' + label + ' : NON';
+        } else {
+            btn.dataset.state = 'on';
+            btn.className = 'status-btn on';
+            var label = fieldId.includes('Reg') ? 'INSCRIT' : 'DEPOSE';
+            btn.innerHTML = '<span class="status-dot"></span> ' + label + ' : OUI';
+        }
+    };
+
+    /* ═══════════════════════════════════════
        ADD USER
        ═══════════════════════════════════════ */
     $('#addUserBtn').addEventListener('click', async function() {
         var tid = $('#addTgId').value.trim().replace(/[^0-9]/g, '');
         var winId = $('#addWinId').value.trim().replace(/[^0-9]/g, '');
-        var isReg = $('#addReg').checked;
-        var isDep = $('#addDep').checked;
+        var isReg = document.getElementById('addRegBtn').dataset.state === 'on';
+        var isDep = document.getElementById('addDepBtn').dataset.state === 'on';
         var resultBox = $('#addResult');
 
         if (!winId || winId.length < 3) {
@@ -1846,8 +1898,14 @@
     function clearAddForm() {
         $('#addTgId').value = '';
         $('#addWinId').value = '';
-        $('#addReg').checked = true;
-        $('#addDep').checked = false;
+        var regBtn = document.getElementById('addRegBtn');
+        regBtn.dataset.state = 'on';
+        regBtn.className = 'status-btn on';
+        regBtn.innerHTML = '<span class="status-dot"></span> INSCRIT : OUI';
+        var depBtn = document.getElementById('addDepBtn');
+        depBtn.dataset.state = 'off';
+        depBtn.className = 'status-btn off';
+        depBtn.innerHTML = '<span class="status-dot"></span> DEPOSE : NON';
         $('#addResult').className = 'result-box';
         $('#addResult').style.display = 'none';
     }
