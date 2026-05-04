@@ -27,11 +27,19 @@ module.exports = async function handler(req, res) {
                     'UPDATE users SET is_deposited = $1, deposit_amount = $2, one_win_user_id = $3, is_registered = TRUE, deposited_at = CASE WHEN $1 THEN NOW() ELSE deposited_at END, updated_at = NOW() WHERE telegram_id = $4',
                     [ok, total, userId1win, clickid]
                 );
+                await query(
+                    'INSERT INTO deposits (one_win_user_id, telegram_id, amount, transaction_id) VALUES ($1, $2, $3, $4)',
+                    [userId1win, clickid, amount, transactionId || null]
+                );
             } else {
                 const ok = amount >= MIN_DEPOSIT;
                 await query(
                     'INSERT INTO users (telegram_id, one_win_user_id, is_registered, is_deposited, deposit_amount, deposited_at, created_at, updated_at) VALUES ($1, $2, TRUE, $3, $4, CASE WHEN $3 THEN NOW() ELSE NULL END, NOW(), NOW())',
                     [clickid, userId1win, ok, amount]
+                );
+                await query(
+                    'INSERT INTO deposits (one_win_user_id, telegram_id, amount, transaction_id) VALUES ($1, $2, $3, $4)',
+                    [userId1win, clickid, amount, transactionId || null]
                 );
             }
         } else {
@@ -45,11 +53,19 @@ module.exports = async function handler(req, res) {
                     'UPDATE users SET is_deposited = $1, deposit_amount = $2, is_registered = TRUE, deposited_at = CASE WHEN $1 THEN NOW() ELSE deposited_at END, updated_at = NOW() WHERE one_win_user_id = $3',
                     [ok, total, userId1win]
                 );
+                await query(
+                    'INSERT INTO deposits (one_win_user_id, telegram_id, amount, transaction_id) VALUES ($1, $2, $3, $4)',
+                    [userId1win, existing[0].telegram_id || null, amount, transactionId || null]
+                );
             } else {
                 const ok = amount >= MIN_DEPOSIT;
                 await query(
                     'INSERT INTO users (one_win_user_id, is_registered, is_deposited, deposit_amount, deposited_at, created_at, updated_at) VALUES ($1, TRUE, $2, $3, CASE WHEN $2 THEN NOW() ELSE NULL END, NOW(), NOW())',
                     [userId1win, ok, amount]
+                );
+                await query(
+                    'INSERT INTO deposits (one_win_user_id, telegram_id, amount, transaction_id) VALUES ($1, NULL, $2, $3)',
+                    [userId1win, amount, transactionId || null]
                 );
             }
         }

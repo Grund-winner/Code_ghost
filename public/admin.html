@@ -1119,6 +1119,19 @@
         </div>
         <div class="modal-body">
             <div class="user-info-box" id="editInfo"></div>
+            <!-- Historique des dépôts -->
+            <div id="depositsHistory" style="margin-bottom:16px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                    <label style="font-size:12px;font-weight:600;color:#8E8E93;text-transform:uppercase;letter-spacing:0.4px;display:flex;align-items:center;gap:6px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                        Historique des depots
+                    </label>
+                    <span id="depositsTotal" style="font-size:12px;font-weight:700;color:#007AFF;"></span>
+                </div>
+                <div id="depositsList" style="max-height:200px;overflow-y:auto;background:#F2F2F7;border-radius:12px;padding:4px;">
+                    <div style="text-align:center;padding:20px;color:#AEAEB2;font-size:13px;">Chargement...</div>
+                </div>
+            </div>
             <div class="form-group">
                 <label>Statut</label>
                 <div class="status-row">
@@ -1443,6 +1456,49 @@
             '<br><b>ID 1Win:</b> <span class="id-cell">' + (user.one_win_user_id || '-') + '</span>' +
             '&nbsp; <b>Inscrit le:</b> ' + (user.created_at ? new Date(user.created_at).toLocaleDateString('fr-FR') : '-');
         $('#editModal').classList.add('show');
+        if (tid) loadDeposits(tid);
+    }
+    async function loadDeposits(tid) {
+        var list = $('#depositsList');
+        var total = $('#depositsTotal');
+        list.innerHTML = '<div style="text-align:center;padding:20px;color:#AEAEB2;font-size:13px;">Chargement...</div>';
+        try {
+            var r = await fetch(BASE + '/api/admin-actions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: PASSWORD, action: 'get_deposits', telegram_id: tid })
+            });
+            var data = await r.json();
+            if (!data.success || !data.deposits || data.deposits.length === 0) {
+                list.innerHTML = '<div style="text-align:center;padding:20px;color:#AEAEB2;font-size:13px;">Aucun depot enregistre</div>';
+                total.textContent = '';
+                return;
+            }
+            var deps = data.deposits;
+            var sum = deps.reduce(function(s, d) { return s + parseFloat(d.amount || 0); }, 0);
+            total.textContent = sum.toFixed(2) + '$';
+            var html = '';
+            for (var i = 0; i < deps.length; i++) {
+                var d = deps[i];
+                var date = new Date(d.created_at);
+                var dateStr = date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                var timeStr = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                var amt = parseFloat(d.amount || 0).toFixed(2);
+                var txnId = d.transaction_id ? d.transaction_id.substring(0, 8) + '...' : '-';
+                html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:10px;background:#fff;margin-bottom:2px;">' +
+                    '<div style="display:flex;align-items:center;gap:10px;">' +
+                    '<div style="width:6px;height:6px;border-radius:50%;background:#34C759;flex-shrink:0;"></div>' +
+                    '<div>' +
+                    '<div style="font-size:14px;font-weight:700;color:#1C1C1E;">' + amt + ' $</div>' +
+                    '<div style="font-size:11px;color:#8E8E93;">' + dateStr + ' a ' + timeStr + '</div>' +
+                    '</div></div>' +
+                    '<div style="font-size:10px;color:#AEAEB2;font-family:monospace;background:#F2F2F7;padding:2px 6px;border-radius:4px;">' + txnId + '</div>' +
+                    '</div>';
+            }
+            list.innerHTML = html;
+        } catch(e) {
+            list.innerHTML = '<div style="text-align:center;padding:20px;color:#FF3B30;font-size:13px;">Erreur de chargement</div>';
+        }
     }
     function closeModal() {
         $('#editModal').classList.remove('show');

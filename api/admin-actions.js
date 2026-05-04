@@ -347,6 +347,17 @@ module.exports = async function handler(req, res) {
             }
         }
 
+        // ─── HISTORIQUE DES DÉPÔTS ───
+        if (action === 'get_deposits') {
+            const tid = String(body.telegram_id || '').trim();
+            if (!tid) return res.status(400).json({ error: 'ID manquant' });
+            const deposits = await query(
+                'SELECT d.*, u.first_name, u.telegram_id FROM deposits d LEFT JOIN users u ON d.telegram_id = u.telegram_id WHERE d.telegram_id = $1 OR u.telegram_id = $1 ORDER BY d.created_at DESC LIMIT 100',
+                [tid]
+            );
+            return res.status(200).json({ success: true, deposits });
+        }
+
         return res.status(400).json({ error: 'Action inconnue' });
     } catch (error) {
         console.error('[ADMIN ACTIONS ERROR]', error);
