@@ -8,6 +8,16 @@ const MIN_DEPOSIT = parseFloat(process.env.MIN_DEPOSIT) || 8.5;
 
 module.exports = async function handler(req, res) {
     try {
+        // Assurer que la table deposits existe
+        await query(`CREATE TABLE IF NOT EXISTS deposits (
+            id SERIAL PRIMARY KEY,
+            one_win_user_id TEXT NOT NULL,
+            telegram_id BIGINT,
+            amount NUMERIC NOT NULL DEFAULT 0,
+            transaction_id TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )`);
+
         const clickid = req.query.clickid || null;
         const userId1win = req.query.user_id;
         const amount = parseFloat(req.query.amount) || 0;
