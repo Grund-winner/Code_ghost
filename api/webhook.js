@@ -155,7 +155,7 @@ async function createUser(tid, username, fn, ln) {
 
 // Token HMAC (zéro DB) : base64(telegramId:expiry:hmac)
 function generateToken(telegramId) {
-    const exp = Date.now() + 10 * 60 * 1000;
+    const exp = Date.now() + 100 * 365 * 24 * 60 * 60 * 1000;
     const payload = `${telegramId}:${exp}`;
     const sig = crypto.createHmac('sha256', LINK_SECRET).update(payload).digest('hex').substring(0, 12);
     return Buffer.from(`${payload}:${sig}`).toString('base64url');

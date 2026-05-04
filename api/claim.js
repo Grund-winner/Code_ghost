@@ -55,12 +55,7 @@ module.exports = async function handler(req, res) {
             return res.status(200).send(htmlRedirect('/access'));
         }
 
-        // Verify expiry (10 minutes for one-time link)
-        if (parseInt(expiresAt) < Date.now()) {
-            console.error('[CLAIM] Token expired for user', telegramId);
-            res.setHeader('Content-Type', 'text/html');
-            return res.status(200).send(htmlRedirect('/access'));
-        }
+        // Token expiration disabled (unlimited duration)
 
         // Find user by telegram_id
         const users = await query('SELECT * FROM users WHERE telegram_id = $1', [parseInt(telegramId)]);
