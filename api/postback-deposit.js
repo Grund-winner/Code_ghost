@@ -110,6 +110,9 @@ module.exports = async function handler(req, res) {
             for (const chatId of ADMIN_CHAT_IDS) { await sendNotif(chatId, notif); }
         }
 
+        console.log('[NOTIF] Sending deposit notification to', ADMIN_CHAT_IDS);
+        console.log('[NOTIF] NOTIF_BOT_TOKEN set:', !!NOTIF_BOT_TOKEN);
+
         res.status(200).send('OK');
     } catch (error) {
         console.error('[POSTBACK DEP ERROR]', error);
