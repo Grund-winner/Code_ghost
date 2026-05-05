@@ -4,6 +4,7 @@
 // Route : GET /api/postback-deposit
 // ═══════════════════════════════════════════════════════
 const { query } = require('../lib/db');
+const fetch = require('node-fetch');
 const MIN_DEPOSIT = parseFloat(process.env.MIN_DEPOSIT) || 8.5;
 
 // === NOTIFICATION TELEGRAM DEPOTS ===
